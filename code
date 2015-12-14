@@ -1,0 +1,97 @@
+#Problem1
+binom_em = function(n,m1,m2,x,x1,x2,p,iters){ 
+  for (i in 1:iters){
+    mu_r= p[1]/(p[1]+p[2])
+    mu_s=(1-p[1])/(2-(p[1]+p[2]))
+    log_likelihood <- function (p, n, m1, m2, x, x1, x2)
+    {
+      dbinom (x, n, mean(p), log=TRUE) + 
+        dbinom (x1, m1, p[1], log=TRUE) + 
+        dbinom (x2, m2, p[2], log=TRUE)
+    }
+    a= (x1+(x*mu_r))/(m1+(x*mu_r)+((n-x)*mu_s))
+    b= (x2+(x*(1-mu_r)))/(m2+x*(1-mu_r)+(n-x)*(1-mu_s)) 
+    error_1 = a/p[1] ;error_2 = b/p[2]
+    p[1]=a;p[2]=b
+    p=c(p[1],p[2])
+    cat(i,p,log_likelihood(p,n,m1,m2,x,x1,x2),error_1,error_2 ,"\n")
+  } 
+  p
+}
+
+#Problem2
+mu_s = c(rep(1,10)) 
+nu_s = c(rep(1,10)) 
+rho_s = c(rep(0.5,10)) 
+alpha = c(rep(0.1,10)) 
+mu_new = c()
+nu_new = c()
+rho_new = c()
+alpha_new = c()
+indicator = matrix(0, nrow=500,ncol=10)
+em_beetle = function(mu_s,nu_s,rho_s,alpha,iters,dat,sd_s,sd_n,known_data){ 
+  for (j in 1:iters){
+    cis= function(i,s){dnorm(log(dat$mass[i]),mu_s[s],sd_s)*dnorm(log(dat$ratio[ i]),nu_s[s],sd_n)*dbinom(dat$swamp[i],1,rho_s[s])*alpha[s]}
+    mat=c() 
+    log_lik=function(mu_s,nu_s,rho_s,alpha){
+      for (i in 1:dim(known_data)[1]){
+        mat[i]=log(dnorm(log(known_data$mass[i]),mu_s[known_data$species[i]],sd_s)*dnorm(log(known_data$ratio[i]),nu_s[known_data$species[i]],sd_n)*dbinom(known_data$swamp[i],1,rho_s[known_data$species[i]])*alpha[known_data$species[i]])}
+      sum(mat) }
+    # E-step
+    for (n in 1:500){
+      if(dat$genus[n]=="NA"){ 
+        for(k in 1:10){
+          indicator[n,k] = cis(n,k)/sum(cis(n,c(1:10))) }
+      }
+      if (dat$species[n]=="NA" & dat$genus[n]=="1"){
+        for(k in 1:3){
+          indicator[n,k]= cis(n,k)/sum(cis(n,c(1:3)))} 
+      }
+      if(dat$species[n]=="NA"& dat$genus[n]=="2"){ for(k in 4:5){
+        indicator[n,k] = cis(n,k)/sum(cis(n,c(4:5))) }
+      }
+      if(dat$species[n]=="NA"& dat$genus[n]=="3"){ for(k in 6:7){
+        indicator[n,k] = cis(n,k)/sum(cis(n,c(6:7))) }
+      }
+      if(dat$species[n]=="NA"& dat$genus[n]=="4"){ for(k in 8:10){
+        indicator[n,k] = cis(n,k)/sum(cis(n,c(8:10))) }
+      }
+      if(dat$species[n]!="NA"& dat$genus[n]!="NA"){ indicator[n,dat$species[n]] = 1}
+      indicator 
+    }
+    #M-STEP
+    for (s in 1:10){
+      mu_new[s] = sum(log(dat$mass)*indicator[,s])/sum(indicator[,s])
+    }
+    rate1= mu_new/mu_s 
+    mu_s = mu_new
+    for (s in 1:10){
+      nu_new[s] = sum(log(dat$ratio)*indicator[,s])/sum(indicator[,s])
+    } 
+    rate2=nu_new/nu_s 
+    nu_s = nu_new
+    for(s in 1:10){
+      rho_new[s] = sum(dat$swamp*indicator[,s])/sum(indicator[,s])
+    } 
+    rate3=rho_new/rho_s 
+    rho_s = rho_new
+    for(s in 1:10){
+      alpha_new[s] = sum(indicator[,s])/500
+    }
+    rate4= alpha_new/alpha 
+    alpha= alpha_new
+    
+    cat("\nAt iteration",j,":\n")
+    cat("mu =",mu_s,"\n")
+    cat("nu =",nu_s,"\n")
+    cat("rho =",rho_s,"\n")
+    cat("alpha =",alpha,"\n")
+    cat("log likelihood =",log_lik(mu_s,nu_s,rho_s,alpha),"\n")
+  }
+  list(mu_s,nu_s,rho_s,alpha,rate1,rate2,rate3,rate4)
+  plot(mu_s,nu_s,pch=c(16,17),main="mean of log(mass) vs mean of log(ratio)")
+  plot(rho_s,alpha,pch=c(16,17),main="probab of swamp vs probab of species s")
+  plot(rate1,main="error rate of mean of log(mass)")
+  plot(rate2,main="error rate of mean of log(ratio)")
+  plot(rate3,main="error rate of probab of swamp")
+  plot(rate4,main="error rate of probab of species s")
